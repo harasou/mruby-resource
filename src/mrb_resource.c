@@ -45,7 +45,29 @@ static mrb_value mrb_resource_getrlimit(mrb_state *mrb, mrb_value self) {
 }
 
 static mrb_value mrb_resource_setrlimit(mrb_state *mrb, mrb_value self) {
-  return mrb_str_new_cstr(mrb, "hi!!");
+
+  struct rlimit rl;
+  int rc = 0;
+
+  mrb_value cur_limit, max_limit;
+  mrb_int resource;
+  mrb_int argc;
+
+  argc = mrb_get_args(mrb, "if|f", &resource, &cur_limit, &max_limit);
+  if (argc == 2) {
+    max_limit = cur_limit;
+  }
+
+  rl.rlim_cur = (rlim_t)mrb_float(cur_limit);
+  rl.rlim_max = (rlim_t)mrb_float(max_limit);
+
+  rc = setrlimit(resource, &rl);
+  if (rc < 0) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno),
+               mrb_str_new_cstr(mrb, strerror(errno)));
+  }
+
+  return mrb_nil_value();
 }
 
 void mrb_mruby_resource_gem_init(mrb_state *mrb) {
@@ -143,7 +165,7 @@ void mrb_mruby_resource_gem_init(mrb_state *mrb) {
   mrb_define_module_function(mrb, resource, "getrlimit", mrb_resource_getrlimit,
                              MRB_ARGS_REQ(1));
   mrb_define_module_function(mrb, resource, "setrlimit", mrb_resource_setrlimit,
-                             MRB_ARGS_REQ(1));
+                             MRB_ARGS_ARG(2, 1));
   DONE;
 }
 
