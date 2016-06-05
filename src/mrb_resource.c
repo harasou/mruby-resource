@@ -7,19 +7,63 @@
 */
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 
 #include "mruby.h"
 #include "mruby/array.h"
+#include "mruby/hash.h"
 
 #include "mrb_resource.h"
 
 #define DONE mrb_gc_arena_restore(mrb, 0);
 
+#define SET_MRB_KEY_RUSAGE_MEMBER1(hash, rusage, member)                       \
+  mrb_hash_set(                                                                \
+      mrb, hash, mrb_symbol_value(mrb_intern_cstr(mrb, #member)),              \
+      mrb_float_value(mrb, (double)rusage.ru_utime.tv_sec +                    \
+                               (double)rusage.ru_utime.tv_usec / 1e6));
+
+#define SET_MRB_KEY_RUSAGE_MEMBER2(hash, rusage, member)                       \
+  mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_cstr(mrb, #member)),     \
+               mrb_float_value(mrb, rusage.member));
+
 static mrb_value mrb_resource_getrusage(mrb_state *mrb, mrb_value self) {
-  return mrb_str_new_cstr(mrb, "hi!!");
+
+  struct rusage ru;
+  int ret = 0;
+  mrb_value r;
+
+  mrb_int who;
+  mrb_get_args(mrb, "i", &who);
+
+  ret = getrusage(who, &ru);
+  if (ret < 0) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno),
+               mrb_str_new_cstr(mrb, strerror(errno)));
+  }
+
+  r = mrb_hash_new(mrb);
+  SET_MRB_KEY_RUSAGE_MEMBER1(r, ru, ru_utime);
+  SET_MRB_KEY_RUSAGE_MEMBER1(r, ru, ru_stime);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_maxrss);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_ixrss);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_idrss);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_isrss);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_minflt);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_majflt);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_nswap);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_inblock);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_oublock);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_msgsnd);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_msgrcv);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_nsignals);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_nvcsw);
+  SET_MRB_KEY_RUSAGE_MEMBER2(r, ru, ru_nivcsw);
+
+  return r;
 }
 
 static mrb_value mrb_resource_getrlimit(mrb_state *mrb, mrb_value self) {
