@@ -38,6 +38,13 @@ end
     ru = getrusage(RUSAGE_SELF)      #=> {:ru_utime=>0.008506, :ru_stime=>0.008506, :ru_maxrss=>2512, :ru_ixrss=>0, :ru_idrss=>0, :ru_isrss=>0, :ru_minflt=>466, :ru_majflt=>0, :ru_nswap=>0, :ru_inblock=>0, :ru_oublock=>0, :ru_msgsnd=>0, :ru_msgrcv=>0, :ru_nsignals=>0, :ru_nvcsw=>4, :ru_nivcsw=>9}
     ```
 
+- Resource::Rusage#ru_utime
+
+    ```ruby
+    # TODO: add other rusage method like ru_stime
+    Resource::Rusage.new(Resource::RUSAGE_SELF).ru_utime #=> 0.002736
+    ```
+
 ## License
 under the MIT License:
 
