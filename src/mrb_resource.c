@@ -237,6 +237,7 @@ void mrb_mruby_resource_gem_init(mrb_state *mrb)
   mrb_define_module_function(mrb, resource, "setrlimit", mrb_resource_setrlimit, MRB_ARGS_ARG(2, 1));
 
   rusage = mrb_define_class_under(mrb, resource, "Rusage", mrb->object_class);
+  MRB_SET_INSTANCE_TT(rusage, MRB_TT_DATA);
   mrb_define_method(mrb, rusage, "initialize", mrb_resource_getrusage_init, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, rusage, "ru_utime", mrb_resource_getrusage_ru_utime, MRB_ARGS_NONE());
   DONE;
