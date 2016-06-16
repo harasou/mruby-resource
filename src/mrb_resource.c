@@ -14,9 +14,9 @@
 
 #include "mruby.h"
 #include "mruby/array.h"
-#include "mruby/hash.h"
-#include "mruby/data.h"
 #include "mruby/class.h"
+#include "mruby/data.h"
+#include "mruby/hash.h"
 
 #include "mrb_resource.h"
 
