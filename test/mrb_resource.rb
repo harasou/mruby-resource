@@ -9,4 +9,11 @@ assert("Resource.getrusage") do
   assert_true((after[:ru_utime] - before[:ru_utime]) > 0)
 end
 
+assert("Resource::Rusage#ru_utime") do
+  before_utime = Resource::Rusage.new(Resource::RUSAGE_SELF).ru_utime
+  1000.times {}
+  after_utime = Resource::Rusage.new(Resource::RUSAGE_SELF).ru_utime
+  assert_true((after_utime - before_utime) > 0)
+end
+
 # TODO: add other tests
