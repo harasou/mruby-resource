@@ -14,6 +14,8 @@
 
 #include "mruby.h"
 #include "mruby/array.h"
+#include "mruby/class.h"
+#include "mruby/data.h"
 #include "mruby/hash.h"
 
 #include "mrb_resource.h"
@@ -27,20 +29,63 @@
 #define SET_MRB_KEY_RUSAGE_MEMBER2(hash, rusage, member)                                                               \
   mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_cstr(mrb, #member)), mrb_float_value(mrb, rusage.member));
 
+typedef struct mrb_rusage_ctx {
+  struct rusage *ru;
+} mrb_rusage_ctx;
+
+static const struct mrb_data_type mrb_rusage_ctx_type = {
+    "mrb_rusage_ctx_type", mrb_free,
+};
+
+static void mrb_resource_rusage_inner(mrb_state *mrb, struct rusage *ru, mrb_int who)
+{
+  int ret = getrusage(who, ru);
+
+  if (ret < 0) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno), mrb_str_new_cstr(mrb, strerror(errno)));
+  }
+}
+
+static mrb_value mrb_resource_getrusage_init(mrb_state *mrb, mrb_value self)
+{
+  struct rusage ru;
+  mrb_int who;
+  mrb_rusage_ctx *ctx;
+
+  mrb_get_args(mrb, "i", &who);
+  mrb_resource_rusage_inner(mrb, &ru, who);
+
+  ctx = (mrb_rusage_ctx *)DATA_PTR(self);
+  if (ctx) {
+    mrb_free(mrb, ctx);
+  }
+
+  DATA_TYPE(self) = &mrb_rusage_ctx_type;
+  ctx = (mrb_rusage_ctx *)mrb_malloc(mrb, sizeof(mrb_rusage_ctx));
+  ctx->ru = &ru;
+
+  DATA_PTR(self) = ctx;
+
+  return self;
+}
+
+static mrb_value mrb_resource_getrusage_ru_utime(mrb_state *mrb, mrb_value self)
+{
+  mrb_rusage_ctx *ctx = (mrb_rusage_ctx *)DATA_PTR(self);
+
+  return mrb_float_value(mrb, (double)ctx->ru->ru_utime.tv_sec + (double)ctx->ru->ru_utime.tv_usec / 1e6);
+}
+
 static mrb_value mrb_resource_getrusage(mrb_state *mrb, mrb_value self)
 {
 
   struct rusage ru;
-  int ret = 0;
   mrb_value r;
 
   mrb_int who;
   mrb_get_args(mrb, "i", &who);
 
-  ret = getrusage(who, &ru);
-  if (ret < 0) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno), mrb_str_new_cstr(mrb, strerror(errno)));
-  }
+  mrb_resource_rusage_inner(mrb, &ru, who);
 
   r = mrb_hash_new(mrb);
   SET_MRB_KEY_RUSAGE_MEMBER1(r, ru, ru_utime);
@@ -114,7 +159,7 @@ static mrb_value mrb_resource_setrlimit(mrb_state *mrb, mrb_value self)
 void mrb_mruby_resource_gem_init(mrb_state *mrb)
 {
 
-  struct RClass *resource;
+  struct RClass *resource, *rusage;
   resource = mrb_define_module(mrb, "Resource");
 
 #ifdef RLIMIT_AS
@@ -190,6 +235,11 @@ void mrb_mruby_resource_gem_init(mrb_state *mrb)
   mrb_define_module_function(mrb, resource, "getrusage", mrb_resource_getrusage, MRB_ARGS_REQ(1));
   mrb_define_module_function(mrb, resource, "getrlimit", mrb_resource_getrlimit, MRB_ARGS_REQ(1));
   mrb_define_module_function(mrb, resource, "setrlimit", mrb_resource_setrlimit, MRB_ARGS_ARG(2, 1));
+
+  rusage = mrb_define_class_under(mrb, resource, "Rusage", mrb->object_class);
+  MRB_SET_INSTANCE_TT(rusage, MRB_TT_DATA);
+  mrb_define_method(mrb, rusage, "initialize", mrb_resource_getrusage_init, MRB_ARGS_REQ(1));
+  mrb_define_method(mrb, rusage, "ru_utime", mrb_resource_getrusage_ru_utime, MRB_ARGS_NONE());
   DONE;
 }
 
