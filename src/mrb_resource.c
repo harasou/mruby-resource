@@ -29,12 +29,12 @@
 #define SET_MRB_KEY_RUSAGE_MEMBER2(hash, rusage, member)                                                               \
   mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_cstr(mrb, #member)), mrb_float_value(mrb, rusage.member));
 
-typedef struct mrb_resource_ctx {
+typedef struct mrb_rusage_ctx {
   struct rusage *ru;
-} mrb_resource_ctx;
+} mrb_rusage_ctx;
 
-static const struct mrb_data_type mrb_resource_ctx_type = {
-    "mrb_resource_ctx_type", mrb_free,
+static const struct mrb_data_type mrb_rusage_ctx_type = {
+    "mrb_rusage_ctx_type", mrb_free,
 };
 
 static void mrb_resource_rusage_inner(mrb_state *mrb, struct rusage *ru, mrb_int who)
@@ -50,18 +50,18 @@ static mrb_value mrb_resource_getrusage_init(mrb_state *mrb, mrb_value self)
 {
   struct rusage ru;
   mrb_int who;
-  mrb_resource_ctx *ctx;
+  mrb_rusage_ctx *ctx;
 
   mrb_get_args(mrb, "i", &who);
   mrb_resource_rusage_inner(mrb, &ru, who);
 
-  ctx = (mrb_resource_ctx *)DATA_PTR(self);
+  ctx = (mrb_rusage_ctx *)DATA_PTR(self);
   if (ctx) {
     mrb_free(mrb, ctx);
   }
 
-  DATA_TYPE(self) = &mrb_resource_ctx_type;
-  ctx = (mrb_resource_ctx *)mrb_malloc(mrb, sizeof(mrb_resource_ctx));
+  DATA_TYPE(self) = &mrb_rusage_ctx_type;
+  ctx = (mrb_rusage_ctx *)mrb_malloc(mrb, sizeof(mrb_rusage_ctx));
   ctx->ru = &ru;
 
   DATA_PTR(self) = ctx;
@@ -71,7 +71,7 @@ static mrb_value mrb_resource_getrusage_init(mrb_state *mrb, mrb_value self)
 
 static mrb_value mrb_resource_getrusage_ru_utime(mrb_state *mrb, mrb_value self)
 {
-  mrb_resource_ctx *ctx = (mrb_resource_ctx *)DATA_PTR(self);
+  mrb_rusage_ctx *ctx = (mrb_rusage_ctx *)DATA_PTR(self);
 
   return mrb_float_value(mrb, (double)ctx->ru->ru_utime.tv_sec + (double)ctx->ru->ru_utime.tv_usec / 1e6);
 }
