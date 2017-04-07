@@ -108,6 +108,16 @@ static mrb_value mrb_resource_getrusage(mrb_state *mrb, mrb_value self)
   return r;
 }
 
+static mrb_value mrb_resource_make_rlarray(mrb_state *mrb, const struct rlimit rl)
+{
+  mrb_value array;
+  array = mrb_ary_new(mrb);
+  mrb_ary_push(mrb, array, mrb_float_value(mrb, rl.rlim_cur));
+  mrb_ary_push(mrb, array, mrb_float_value(mrb, rl.rlim_max));
+
+  return array;
+}
+
 static mrb_value mrb_resource_getrlimit(mrb_state *mrb, mrb_value self)
 {
 
@@ -123,11 +133,7 @@ static mrb_value mrb_resource_getrlimit(mrb_state *mrb, mrb_value self)
     mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno), mrb_str_new_cstr(mrb, strerror(errno)));
   }
 
-  array = mrb_ary_new(mrb);
-  mrb_ary_push(mrb, array, mrb_float_value(mrb, rl.rlim_cur));
-  mrb_ary_push(mrb, array, mrb_float_value(mrb, rl.rlim_max));
-
-  return array;
+  return mrb_resource_make_rlarray(mrb, rl);
 }
 
 static mrb_value mrb_resource_setrlimit(mrb_state *mrb, mrb_value self)
