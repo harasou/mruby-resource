@@ -5,6 +5,8 @@
 **
 ** See Copyright Notice in LICENSE
 */
+#define _GNU_SOURCE
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -123,8 +125,6 @@ static mrb_value mrb_resource_getrlimit(mrb_state *mrb, mrb_value self)
 
   struct rlimit rl;
   int rc = 0;
-  mrb_value array = mrb_nil_value();
-
   mrb_int resource;
   mrb_get_args(mrb, "i", &resource);
 
@@ -161,6 +161,61 @@ static mrb_value mrb_resource_setrlimit(mrb_state *mrb, mrb_value self)
 
   return mrb_nil_value();
 }
+
+#ifdef __linux__
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+#define _PRLIMIT_AVAILABLE 1
+
+static mrb_value mrb_resource_getprlimit(mrb_state *mrb, mrb_value self)
+{
+  struct rlimit rl;
+  int rc = 0;
+  mrb_int pid, resource;
+  mrb_get_args(mrb, "ii", &pid, &resource);
+
+  rc = prlimit((pid_t)pid, (int)resource, NULL, &rl);
+  if (rc < 0) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno), mrb_str_new_cstr(mrb, strerror(errno)));
+  }
+
+  return mrb_resource_make_rlarray(mrb, rl);
+}
+
+static mrb_value mrb_resource_setprlimit(mrb_state *mrb, mrb_value self)
+{
+  struct rlimit rl;
+  int rc = 0;
+  mrb_value cur_limit, max_limit;
+  mrb_int pid, resource, argc;
+
+  argc = mrb_get_args(mrb, "iif|f", &pid, &resource, &cur_limit, &max_limit);
+  if (argc == 3) {
+    max_limit = cur_limit;
+  }
+
+  rl.rlim_cur = (rlim_t)mrb_float(cur_limit);
+  rl.rlim_max = (rlim_t)mrb_float(max_limit);
+
+  rc = prlimit((pid_t)pid, (int)resource, &rl, NULL);
+  if (rc < 0) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "%S:%S\n", mrb_fixnum_value(errno), mrb_str_new_cstr(mrb, strerror(errno)));
+  }
+
+  return mrb_nil_value();
+}
+
+#endif
+#endif
+
+#ifndef _PRLIMIT_AVAILABLE
+static mrb_value mrb_notimp(mrb_state *mrb, mrb_value self)
+{
+  mrb_raise(mrb, E_NOTIMP_ERROR, "Unsupported platform");
+}
+#define mrb_resource_getprlimit mrb_notimp
+#define mrb_resource_setprlimit mrb_notimp
+#endif
 
 void mrb_mruby_resource_gem_init(mrb_state *mrb)
 {
@@ -241,6 +296,8 @@ void mrb_mruby_resource_gem_init(mrb_state *mrb)
   mrb_define_module_function(mrb, resource, "getrusage", mrb_resource_getrusage, MRB_ARGS_REQ(1));
   mrb_define_module_function(mrb, resource, "getrlimit", mrb_resource_getrlimit, MRB_ARGS_REQ(1));
   mrb_define_module_function(mrb, resource, "setrlimit", mrb_resource_setrlimit, MRB_ARGS_ARG(2, 1));
+  mrb_define_module_function(mrb, resource, "getprlimit", mrb_resource_getprlimit, MRB_ARGS_REQ(2));
+  mrb_define_module_function(mrb, resource, "setprlimit", mrb_resource_setprlimit, MRB_ARGS_ARG(3, 1));
 
   rusage = mrb_define_class_under(mrb, resource, "Rusage", mrb->object_class);
   MRB_SET_INSTANCE_TT(rusage, MRB_TT_DATA);
